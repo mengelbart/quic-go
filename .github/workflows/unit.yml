@@ -31,9 +31,13 @@ jobs:
         env:
           TIMESCALE_FACTOR: 20
         run: ginkgo -r -v -race -randomizeAllSpecs -randomizeSuites -trace -skipPackage integrationtests,benchmark
-      - name: Gather coverage reports
-        if: ${{ matrix.os != 'windows' }} # TODO: figure out how to upload windows logs
+      - name: Gather coverage reports (Unix)
+        if: ${{ matrix.os != 'windows' }}
         run: cat `find . -name "*.coverprofile"` > coverage.txt
+      - name: Gather coverage reports (Windows)
+        if: ${{ matrix.os == 'windows' }}
+        run: for /R %f in (*.coverprofile) do type “%f” >> coverage.txt
+      - run: cat coverage.txt
       - name: Upload coverage to Codecov
         if: ${{ matrix.os != 'windows' }} # TODO: figure out how to upload windows logs
         uses: codecov/codecov-action@v1
