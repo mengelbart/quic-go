@@ -6,6 +6,8 @@ set -e
 
 echo "Using commit:" `cat commit.txt`
 
+tcpdump -vvv -i eth0 -w /logs/pcap.pcap &
+
 if [ "$ROLE" == "client" ]; then
     # Wait for the simulator to start up.
     /wait-for-it.sh sim:57832 -s -t 10

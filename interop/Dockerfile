@@ -27,6 +27,8 @@ FROM martenseemann/quic-network-simulator-endpoint:latest
 
 WORKDIR /quic-go
 
+RUN apt-get update && apt-get install -y tcpdump
+
 COPY --from=builder /quic-go/internal/testdata/cert.pem /quic-go/internal/testdata/priv.key internal/testdata/
 COPY --from=builder /quic-go/commit.txt /quic-go/server /quic-go/client ./
 
