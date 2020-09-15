@@ -36,7 +36,7 @@ jobs:
         run: cat `find . -name "*.coverprofile"` > coverage.txt
       - name: Gather coverage reports (Windows)
         if: ${{ matrix.os == 'windows' }}
-        run: for /R %f in (*.coverprofile) do type “%f” >> coverage.txt
+        run: (for /r %f in (*.coverprofile) do type "%f") >> coverage.txt
       - run: cat coverage.txt
       - name: Upload coverage to Codecov
         if: ${{ matrix.os != 'windows' }} # TODO: figure out how to upload windows logs
