@@ -106,12 +106,14 @@ func newSentPacketHandler(
 	tracer logging.ConnectionTracer,
 	logger utils.Logger,
 ) *sentPacketHandler {
-	congestion := congestion.NewCubicSender(
-		congestion.DefaultClock{},
-		rttStats,
-		true, // use Reno
-		tracer,
-	)
+	//congestion := congestion.NewCubicSender(
+	//	congestion.DefaultClock{},
+	//	rttStats,
+	//	true, // use Reno
+	//	tracer,
+	//)
+
+	congestion := congestion.NoOpSendAlgorithm{}
 
 	return &sentPacketHandler{
 		peerCompletedAddressValidation: pers == protocol.PerspectiveServer,
