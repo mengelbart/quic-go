@@ -63,4 +63,5 @@ type StreamFrame struct {
 // A DatagramFrame is a DATAGRAM frame.
 type DatagramFrame struct {
 	Length ByteCount
+	Data   []byte
 }
