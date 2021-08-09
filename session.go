@@ -1958,14 +1958,22 @@ func (s *session) onStreamCompleted(id protocol.StreamID) {
 	}
 }
 
-func (s *session) SendMessage(p []byte) error {
-	f := &wire.DatagramFrame{DataLenPresent: true}
+func (s *session) SendMessageNotify(p []byte, c func(bool)) error {
+	f := &wire.DatagramFrame{DataLenPresent: true, Notifier: func(received bool) {
+		if c != nil {
+			c(received)
+		}
+	}}
 	if protocol.ByteCount(len(p)) > f.MaxDataLen(s.peerParams.MaxDatagramFrameSize, s.version) {
 		return errors.New("message too large")
 	}
 	f.Data = make([]byte, len(p))
 	copy(f.Data, p)
 	return s.datagramQueue.AddAndWait(f)
+}
+
+func (s *session) SendMessage(p []byte) error {
+	return s.SendMessageNotify(p, nil)
 }
 
 func (s *session) ReceiveMessage() ([]byte, error) {
