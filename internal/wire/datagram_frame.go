@@ -12,6 +12,8 @@ import (
 type DatagramFrame struct {
 	DataLenPresent bool
 	Data           []byte
+
+	Notifier func(received bool)
 }
 
 func parseDatagramFrame(r *bytes.Reader, _ protocol.VersionNumber) (*DatagramFrame, error) {
