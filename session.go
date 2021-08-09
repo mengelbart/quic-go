@@ -1970,8 +1970,12 @@ func (s *session) onStreamCompleted(id protocol.StreamID) {
 	}
 }
 
-func (s *session) SendMessage(p []byte, sentCB func(error)) error {
-	f := &wire.DatagramFrame{DataLenPresent: true}
+func (s *session) SendMessage(p []byte, sentCB func(error), ackLossCB func(bool)) error {
+	f := &wire.DatagramFrame{DataLenPresent: true, Notifier: func(received bool) {
+		if ackLossCB != nil {
+			ackLossCB(received)
+		}
+	}}
 	if protocol.ByteCount(len(p)) > f.MaxDataLen(s.peerParams.MaxDatagramFrameSize, s.version) {
 		return errors.New("message too large")
 	}

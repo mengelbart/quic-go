@@ -601,7 +601,8 @@ func (p *packetPacker) composeNextPacket(onlyDatagram bool, maxFrameSize protoco
 			payload.frames = append(payload.frames, ackhandler.Frame{
 				Frame: datagram,
 				// set it to a no-op. Then we won't set the default callback, which would retransmit the frame.
-				OnLost: func(wire.Frame) {},
+				OnLost:  func(wire.Frame) { datagram.Notifier(false) },
+				OnAcked: func(wire.Frame) { datagram.Notifier(true) },
 			})
 			payload.length += datagram.Length(p.version)
 			dgramBytes += datagram.Length(p.version)

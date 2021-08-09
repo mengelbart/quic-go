@@ -193,7 +193,8 @@ type Session interface {
 
 	// SendMessage sends a message as a datagram.
 	// See https://datatracker.ietf.org/doc/draft-pauly-quic-datagram/.
-	SendMessage([]byte, func(error)) error
+	SendMessage([]byte, func(error), func(bool)) error
+
 	// ReceiveMessage gets a message received in a datagram.
 	// See https://datatracker.ietf.org/doc/draft-pauly-quic-datagram/.
 	ReceiveMessage() ([]byte, error)
