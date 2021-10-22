@@ -117,11 +117,13 @@ func newCubicSender(
 
 // TimeUntilSend returns when the next packet should be sent.
 func (c *cubicSender) TimeUntilSend(_ protocol.ByteCount) time.Time {
+	//return time.Time{}
 	return c.pacer.TimeUntilSend()
 }
 
 func (c *cubicSender) HasPacingBudget() bool {
-	return c.pacer.Budget(c.clock.Now()) >= c.maxDatagramSize
+	return true
+	//return c.pacer.Budget(c.clock.Now()) >= c.maxDatagramSize
 }
 
 func (c *cubicSender) maxCongestionWindow() protocol.ByteCount {
@@ -148,6 +150,7 @@ func (c *cubicSender) OnPacketSent(
 }
 
 func (c *cubicSender) CanSend(bytesInFlight protocol.ByteCount) bool {
+	//return true
 	return bytesInFlight < c.GetCongestionWindow()
 }
 
