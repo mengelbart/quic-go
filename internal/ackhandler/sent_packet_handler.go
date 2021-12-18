@@ -722,19 +722,28 @@ func (h *sentPacketHandler) SendMode() SendMode {
 	if h.numProbesToSend > 0 {
 		return h.ptoMode
 	}
+	//fmt.Printf("cwnd = %v, bytesInFlight = %v\n", cwnd, h.bytesInFlight)
 	// Only send ACKs if we're congestion limited.
 	if !h.congestion.CanSend(h.bytesInFlight) {
 		if h.logger.Debug() {
 			h.logger.Debugf("Congestion limited: bytes in flight %d, window %d", h.bytesInFlight, h.congestion.GetCongestionWindow())
 		}
+		//fmt.Println("can send ack only")
 		return SendAck
+	}
+	cwnd := h.congestion.GetCongestionWindow()
+	if h.bytesInFlight > cwnd/4 {
+		//fmt.Println("can send datagram only")
+		return SendDatagram
 	}
 	if numTrackedPackets >= protocol.MaxOutstandingSentPackets {
 		if h.logger.Debug() {
 			h.logger.Debugf("Max outstanding limited: tracking %d packets, maximum: %d", numTrackedPackets, protocol.MaxOutstandingSentPackets)
 		}
+		//fmt.Println("can send ack only")
 		return SendAck
 	}
+	//fmt.Println("can send any")
 	return SendAny
 }
 

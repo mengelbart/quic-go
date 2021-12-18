@@ -1,13 +1,25 @@
 package quic
 
 import (
+	"fmt"
+	"io"
+	"os"
+	"sync"
+	"time"
+
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 	"github.com/lucas-clemente/quic-go/internal/wire"
 )
 
+type dgram struct {
+	f        *wire.DatagramFrame
+	dequeued chan struct{}
+	enqueued time.Time
+}
 type datagramQueue struct {
-	sendQueue chan *wire.DatagramFrame
+	lock      sync.Mutex
+	sendQueue []*dgram
 	rcvQueue  chan []byte
 
 	closeErr error
@@ -18,46 +30,72 @@ type datagramQueue struct {
 	dequeued chan struct{}
 
 	logger utils.Logger
+
+	delayLogger io.Writer
 }
 
 func newDatagramQueue(hasData func(), logger utils.Logger) *datagramQueue {
+	dw, err := os.Create("/log/delay.log")
+	if err != nil {
+		panic(err)
+	}
 	return &datagramQueue{
-		hasData:   hasData,
-		sendQueue: make(chan *wire.DatagramFrame, 1),
-		rcvQueue:  make(chan []byte, protocol.DatagramRcvQueueLen),
-		dequeued:  make(chan struct{}),
-		closed:    make(chan struct{}),
-		logger:    logger,
+		lock:        sync.Mutex{},
+		sendQueue:   []*dgram{},
+		rcvQueue:    make(chan []byte, protocol.DatagramRcvQueueLen),
+		closeErr:    nil,
+		closed:      make(chan struct{}),
+		hasData:     hasData,
+		dequeued:    make(chan struct{}),
+		logger:      logger,
+		delayLogger: dw,
 	}
 }
 
 // AddAndWait queues a new DATAGRAM frame for sending.
 // It blocks until the frame has been dequeued.
-func (h *datagramQueue) AddAndWait(f *wire.DatagramFrame) error {
+func (h *datagramQueue) AddAndWait(f *wire.DatagramFrame, sentCB func(error)) error {
 	select {
-	case h.sendQueue <- f:
-		h.hasData()
 	case <-h.closed:
 		return h.closeErr
+	default:
 	}
 
-	select {
-	case <-h.dequeued:
-		return nil
-	case <-h.closed:
-		return h.closeErr
-	}
+	ch := make(chan struct{})
+	h.lock.Lock()
+	h.sendQueue = append(h.sendQueue, &dgram{
+		f:        f,
+		dequeued: ch,
+		enqueued: time.Now(),
+	})
+	h.lock.Unlock()
+	h.hasData()
+
+	go func(cb func(error)) {
+		select {
+		case <-ch:
+			cb(nil)
+		case <-h.closed:
+			sentCB(h.closeErr)
+		}
+	}(sentCB)
+	return nil
 }
 
 // Get dequeues a DATAGRAM frame for sending.
 func (h *datagramQueue) Get() *wire.DatagramFrame {
-	select {
-	case f := <-h.sendQueue:
-		h.dequeued <- struct{}{}
-		return f
-	default:
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
+	if len(h.sendQueue) == 0 {
 		return nil
 	}
+	d := h.sendQueue[0]
+	h.sendQueue = h.sendQueue[1:]
+	d.dequeued <- struct{}{}
+	now := time.Now()
+	fmt.Fprintf(h.delayLogger, "%v, %v\n", now.UnixMilli(), now.Sub(d.enqueued).Milliseconds())
+	return d.f
 }
 
 // HandleDatagramFrame handles a received DATAGRAM frame.

@@ -1677,8 +1677,14 @@ func (s *session) sendPackets() error {
 			if err := s.sendProbePacket(protocol.Encryption1RTT); err != nil {
 				return err
 			}
+		case ackhandler.SendDatagram:
+			sent, err := s.sendPacket(true)
+			if err != nil || !sent {
+				return err
+			}
+			sentPacket = true
 		case ackhandler.SendAny:
-			sent, err := s.sendPacket()
+			sent, err := s.sendPacket(false)
 			if err != nil || !sent {
 				return err
 			}
@@ -1751,7 +1757,7 @@ func (s *session) sendProbePacket(encLevel protocol.EncryptionLevel) error {
 	return nil
 }
 
-func (s *session) sendPacket() (bool, error) {
+func (s *session) sendPacket(onlyDatagram bool) (bool, error) {
 	if isBlocked, offset := s.connFlowController.IsNewlyBlocked(); isBlocked {
 		s.framer.QueueControlFrame(&wire.DataBlockedFrame{MaximumData: offset})
 	}
@@ -1782,7 +1788,7 @@ func (s *session) sendPacket() (bool, error) {
 		s.sendPackedPacket(packet, now)
 		return true, nil
 	}
-	packet, err := s.packer.PackPacket()
+	packet, err := s.packer.PackPacket(onlyDatagram)
 	if err != nil || packet == nil {
 		return false, err
 	}
@@ -1964,14 +1970,14 @@ func (s *session) onStreamCompleted(id protocol.StreamID) {
 	}
 }
 
-func (s *session) SendMessage(p []byte) error {
+func (s *session) SendMessage(p []byte, sentCB func(error)) error {
 	f := &wire.DatagramFrame{DataLenPresent: true}
 	if protocol.ByteCount(len(p)) > f.MaxDataLen(s.peerParams.MaxDatagramFrameSize, s.version) {
 		return errors.New("message too large")
 	}
 	f.Data = make([]byte, len(p))
 	copy(f.Data, p)
-	return s.datagramQueue.AddAndWait(f)
+	return s.datagramQueue.AddAndWait(f, sentCB)
 }
 
 func (s *session) ReceiveMessage() ([]byte, error) {

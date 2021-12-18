@@ -18,6 +18,8 @@ const (
 	SendPTOAppData
 	// SendAny means that any packet should be sent
 	SendAny
+
+	SendDatagram
 )
 
 func (s SendMode) String() string {
@@ -34,6 +36,8 @@ func (s SendMode) String() string {
 		return "pto (Application Data)"
 	case SendAny:
 		return "any"
+	case SendDatagram:
+		return "send_datagram"
 	default:
 		return fmt.Sprintf("invalid send mode: %d", s)
 	}
