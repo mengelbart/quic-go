@@ -296,6 +296,7 @@ var newConnection = func(
 		s.tracer,
 		s.logger,
 		s.version,
+		conf.DisableCC,
 	)
 	initialStream := newCryptoStream()
 	handshakeStream := newCryptoStream()
@@ -427,6 +428,7 @@ var newClientConnection = func(
 		s.tracer,
 		s.logger,
 		s.version,
+		conf.DisableCC,
 	)
 	initialStream := newCryptoStream()
 	handshakeStream := newCryptoStream()
@@ -2111,12 +2113,15 @@ func (s *connection) onStreamCompleted(id protocol.StreamID) {
 	}
 }
 
-func (s *connection) SendMessage(p []byte) error {
+func (s *connection) SendMessage(p []byte, ackLossCB func(bool)) error {
 	if !s.supportsDatagrams() {
 		return errors.New("datagram support disabled")
 	}
-
-	f := &wire.DatagramFrame{DataLenPresent: true}
+	f := &wire.DatagramFrame{DataLenPresent: true, Notifier: func(received bool) {
+		if ackLossCB != nil {
+			ackLossCB(received)
+		}
+	}}
 	if protocol.ByteCount(len(p)) > f.MaxDataLen(s.peerParams.MaxDatagramFrameSize, s.version) {
 		return errors.New("message too large")
 	}

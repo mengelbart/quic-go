@@ -181,7 +181,7 @@ type Connection interface {
 	ConnectionState() ConnectionState
 
 	// SendMessage sends a message as a datagram, as specified in RFC 9221.
-	SendMessage([]byte) error
+	SendMessage([]byte, func(bool)) error
 	// ReceiveMessage gets a message received in a datagram, as specified in RFC 9221.
 	ReceiveMessage() ([]byte, error)
 }
@@ -319,6 +319,8 @@ type Config struct {
 	// Enable QUIC datagram support (RFC 9221).
 	EnableDatagrams bool
 	Tracer          logging.Tracer
+
+	DisableCC bool
 }
 
 // ConnectionState records basic details about a QUIC connection

@@ -139,6 +139,9 @@ const MaxDatagramFrameSize ByteCount = 1220
 // DatagramRcvQueueLen is the length of the receive queue for DATAGRAM frames (RFC 9221)
 const DatagramRcvQueueLen = 128
 
+// DatagramSendQueueLen is the length of the send queue for DATAGRAM frames (RFC 9221)
+const DatagramSendQueueLen = 128
+
 // MaxNumAckRanges is the maximum number of ACK ranges that we send in an ACK frame.
 // It also serves as a limit for the packet history.
 // If at any point we keep track of more ranges, old ranges are discarded.

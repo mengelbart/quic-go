@@ -18,7 +18,8 @@ func NewAckHandler(
 	tracer logging.ConnectionTracer,
 	logger utils.Logger,
 	version protocol.VersionNumber,
+	disableCC bool,
 ) (SentPacketHandler, ReceivedPacketHandler) {
-	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, rttStats, clientAddressValidated, pers, tracer, logger)
+	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, rttStats, clientAddressValidated, pers, tracer, logger, disableCC)
 	return sph, newReceivedPacketHandler(sph, rttStats, logger, version)
 }

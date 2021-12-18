@@ -136,5 +136,6 @@ func populateConfig(config *Config, defaultConnIDLen int) *Config {
 		DisablePathMTUDiscovery:          config.DisablePathMTUDiscovery,
 		DisableVersionNegotiationPackets: config.DisableVersionNegotiationPackets,
 		Tracer:                           config.Tracer,
+		DisableCC:                        config.DisableCC,
 	}
 }
