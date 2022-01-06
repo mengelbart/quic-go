@@ -3,7 +3,7 @@ package quic
 import (
 	"fmt"
 	"io"
-	"os"
+	"io/ioutil"
 	"sync"
 	"time"
 
@@ -35,10 +35,10 @@ type datagramQueue struct {
 }
 
 func newDatagramQueue(hasData func(), logger utils.Logger) *datagramQueue {
-	dw, err := os.Create("/log/delay.log")
-	if err != nil {
-		panic(err)
-	}
+	//dw, err := os.Create("/log/delay.log")
+	//if err != nil {
+	//	panic(err)
+	//}
 	return &datagramQueue{
 		lock:        sync.Mutex{},
 		sendQueue:   []*dgram{},
@@ -48,7 +48,7 @@ func newDatagramQueue(hasData func(), logger utils.Logger) *datagramQueue {
 		hasData:     hasData,
 		dequeued:    make(chan struct{}),
 		logger:      logger,
-		delayLogger: dw,
+		delayLogger: ioutil.Discard,
 	}
 }
 
@@ -62,6 +62,7 @@ func (h *datagramQueue) AddAndWait(f *wire.DatagramFrame, sentCB func(error)) er
 	}
 
 	ch := make(chan struct{})
+
 	h.lock.Lock()
 	h.sendQueue = append(h.sendQueue, &dgram{
 		f:        f,
@@ -71,14 +72,18 @@ func (h *datagramQueue) AddAndWait(f *wire.DatagramFrame, sentCB func(error)) er
 	h.lock.Unlock()
 	h.hasData()
 
-	go func(cb func(error)) {
+	go func(cb func(error), c chan struct{}) {
 		select {
-		case <-ch:
-			cb(nil)
+		case <-c:
+			if sentCB != nil {
+				cb(nil)
+			}
 		case <-h.closed:
-			sentCB(h.closeErr)
+			if sentCB != nil {
+				cb(h.closeErr)
+			}
 		}
-	}(sentCB)
+	}(sentCB, ch)
 	return nil
 }
 

@@ -294,6 +294,8 @@ type Config struct {
 	// Datagrams will only be available when both peers enable datagram support.
 	EnableDatagrams bool
 	Tracer          logging.Tracer
+
+	DisableCC bool
 }
 
 // ConnectionState records basic details about a QUIC connection

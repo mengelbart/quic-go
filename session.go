@@ -295,6 +295,7 @@ var newSession = func(
 		s.tracer,
 		s.logger,
 		s.version,
+		conf.DisableCC,
 	)
 	initialStream := newCryptoStream()
 	handshakeStream := newCryptoStream()
@@ -422,6 +423,7 @@ var newClientSession = func(
 		s.tracer,
 		s.logger,
 		s.version,
+		conf.DisableCC,
 	)
 	initialStream := newCryptoStream()
 	handshakeStream := newCryptoStream()

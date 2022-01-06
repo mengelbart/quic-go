@@ -40,6 +40,8 @@ type client struct {
 	tracer    logging.ConnectionTracer
 	tracingID uint64
 	logger    utils.Logger
+
+	disableCC bool
 }
 
 var (

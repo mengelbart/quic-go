@@ -108,16 +108,21 @@ func newSentPacketHandler(
 	pers protocol.Perspective,
 	tracer logging.ConnectionTracer,
 	logger utils.Logger,
+	disableCC bool,
 ) *sentPacketHandler {
-	//	congestion := congestion.NewCubicSender(
-	//		congestion.DefaultClock{},
-	//		rttStats,
-	//		initialMaxDatagramSize,
-	//		true, // use Reno
-	//		tracer,
-	//	)
+	var cc congestion.SendAlgorithmWithDebugInfos
 
-	congestion := congestion.NoOpSendAlgorithm{}
+	if disableCC {
+		cc = congestion.NoOpSendAlgorithm{}
+	} else {
+		cc = congestion.NewCubicSender(
+			congestion.DefaultClock{},
+			rttStats,
+			initialMaxDatagramSize,
+			true, // use Reno
+			tracer,
+		)
+	}
 
 	return &sentPacketHandler{
 		peerCompletedAddressValidation: pers == protocol.PerspectiveServer,
@@ -126,7 +131,7 @@ func newSentPacketHandler(
 		handshakePackets:               newPacketNumberSpace(0, false, rttStats),
 		appDataPackets:                 newPacketNumberSpace(0, true, rttStats),
 		rttStats:                       rttStats,
-		congestion:                     congestion,
+		congestion:                     cc,
 		perspective:                    pers,
 		tracer:                         tracer,
 		logger:                         logger,
