@@ -3,7 +3,6 @@ package quic
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sync"
 	"time"
 
@@ -48,7 +47,7 @@ func newDatagramQueue(hasData func(), logger utils.Logger) *datagramQueue {
 		hasData:     hasData,
 		dequeued:    make(chan struct{}),
 		logger:      logger,
-		delayLogger: ioutil.Discard,
+		delayLogger: io.Discard,
 	}
 }
 
@@ -85,6 +84,17 @@ func (h *datagramQueue) AddAndWait(f *wire.DatagramFrame, sentCB func(error)) er
 		}
 	}(sentCB, ch)
 	return nil
+}
+
+func (h *datagramQueue) CanAdd(maxSize protocol.ByteCount, version protocol.VersionNumber) bool {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
+	if len(h.sendQueue) == 0 {
+		return false
+	}
+	s := h.sendQueue[0].f.MaxDataLen(maxSize, version)
+	return protocol.ByteCount(len(h.sendQueue[0].f.Data)) < s
 }
 
 // Get dequeues a DATAGRAM frame for sending.
