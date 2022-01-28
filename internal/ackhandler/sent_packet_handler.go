@@ -738,11 +738,11 @@ func (h *sentPacketHandler) SendMode() SendMode {
 		//fmt.Println("can send ack only")
 		return SendAck
 	}
-	//cwnd := h.congestion.GetCongestionWindow()
-	//if h.bytesInFlight > cwnd/6 {
-	//	//fmt.Println("can send datagram only")
-	//	return SendDatagram
-	//}
+	cwnd := h.congestion.GetCongestionWindow()
+	if h.bytesInFlight > cwnd/5 {
+		//fmt.Println("can send datagram only")
+		return SendDatagram
+	}
 	if numTrackedPackets >= protocol.MaxOutstandingSentPackets {
 		if h.logger.Debug() {
 			h.logger.Debugf("Max outstanding limited: tracking %d packets, maximum: %d", numTrackedPackets, protocol.MaxOutstandingSentPackets)
