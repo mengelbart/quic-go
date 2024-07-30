@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/ackhandler"
@@ -21,6 +22,8 @@ type sendStreamI interface {
 	popStreamFrame(maxBytes protocol.ByteCount, v protocol.Version) (frame ackhandler.StreamFrame, ok, hasMore bool)
 	closeForShutdown(error)
 	updateSendWindow(protocol.ByteCount)
+	priority() uint32
+	incremental() bool
 }
 
 type sendStream struct {
@@ -59,6 +62,9 @@ type sendStream struct {
 	deadline  time.Time
 
 	flowController flowcontrol.StreamFlowController
+
+	prio atomic.Uint32
+	inc  atomic.Bool
 }
 
 var (
@@ -79,9 +85,27 @@ func newSendStream(
 		flowController: flowController,
 		writeChan:      make(chan struct{}, 1),
 		writeOnce:      make(chan struct{}, 1), // cap: 1, to protect against concurrent use of Write
+		prio:           atomic.Uint32{},
+		inc:            atomic.Bool{},
 	}
 	s.ctx, s.ctxCancel = context.WithCancelCause(ctx)
 	return s
+}
+
+func (s *sendStream) priority() uint32 {
+	return s.prio.Load()
+}
+
+func (s *sendStream) incremental() bool {
+	return s.inc.Load()
+}
+
+func (s *sendStream) SetPriority(p uint32) {
+	s.prio.Store(p)
+}
+
+func (s *sendStream) SetIncremental(b bool) {
+	s.inc.Store(b)
 }
 
 func (s *sendStream) StreamID() protocol.StreamID {

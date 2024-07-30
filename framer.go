@@ -1,12 +1,14 @@
 package quic
 
 import (
+	"container/heap"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/quic-go/quic-go/internal/ackhandler"
 	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/utils/ringbuffer"
+	"github.com/quic-go/quic-go/internal/utils/priorityqueue"
 	"github.com/quic-go/quic-go/internal/wire"
 	"github.com/quic-go/quic-go/quicvarint"
 )
@@ -28,7 +30,7 @@ type framer struct {
 	mutex sync.Mutex
 
 	activeStreams            map[protocol.StreamID]sendStreamI
-	streamQueue              ringbuffer.RingBuffer[protocol.StreamID]
+	streamQueue              priorityqueue.PriorityQueue
 	streamsWithControlFrames map[protocol.StreamID]streamControlFrameGetter
 
 	controlFrameMutex          sync.Mutex
@@ -143,7 +145,11 @@ func (f *framer) QueuedTooManyControlFrames() bool {
 func (f *framer) AddActiveStream(id protocol.StreamID, str sendStreamI) {
 	f.mutex.Lock()
 	if _, ok := f.activeStreams[id]; !ok {
-		f.streamQueue.PushBack(id)
+		heap.Push(&f.streamQueue, &priorityqueue.Item{
+			Value:     int64(id),
+			Timestamp: time.Now(),
+			Priority:  int(str.priority()),
+		})
 		f.activeStreams[id] = str
 	}
 	f.mutex.Unlock()
@@ -177,13 +183,23 @@ func (f *framer) AppendStreamFrames(frames []ackhandler.StreamFrame, maxLen prot
 		if protocol.MinStreamFrameSize+length > maxLen {
 			break
 		}
-		id := f.streamQueue.PopFront()
+		// log.Println("PRIORITIES")
+		// for _, v := range f.streamQueue {
+		// 	log.Printf("%v", v)
+		// }
+		item := heap.Pop(&f.streamQueue).(*priorityqueue.Item)
+		id := protocol.StreamID(item.Value)
+		// log.Printf("sending on stream %v with prio %v and ts %v", id, item.Priority, item.Timestamp)
 		// This should never return an error. Better check it anyway.
 		// The stream will only be in the streamQueue, if it enqueued itself there.
-		str, ok := f.activeStreams[id]
+		str, ok := f.activeStreams[protocol.StreamID(id)]
 		// The stream might have been removed after being enqueued.
 		if !ok {
 			continue
+		}
+		ts := item.Timestamp
+		if str.incremental() {
+			ts = time.Now()
 		}
 		remainingLen := maxLen - length
 		// For the last STREAM frame, we'll remove the DataLen field later.
@@ -192,7 +208,11 @@ func (f *framer) AppendStreamFrames(frames []ackhandler.StreamFrame, maxLen prot
 		remainingLen += protocol.ByteCount(quicvarint.Len(uint64(remainingLen)))
 		frame, ok, hasMoreData := str.popStreamFrame(remainingLen, v)
 		if hasMoreData { // put the stream back in the queue (at the end)
-			f.streamQueue.PushBack(id)
+			heap.Push(&f.streamQueue, &priorityqueue.Item{
+				Value:     int64(item.Value),
+				Timestamp: ts,
+				Priority:  int(str.priority()),
+			})
 		} else { // no more data to send. Stream is not active
 			delete(f.activeStreams, id)
 		}

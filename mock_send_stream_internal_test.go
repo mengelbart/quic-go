@@ -156,6 +156,78 @@ func (c *MockSendStreamIContextCall) DoAndReturn(f func() context.Context) *Mock
 	return c
 }
 
+// SetIncremental mocks base method.
+func (m *MockSendStreamI) SetIncremental(arg0 bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetIncremental", arg0)
+}
+
+// SetIncremental indicates an expected call of SetIncremental.
+func (mr *MockSendStreamIMockRecorder) SetIncremental(arg0 any) *MockSendStreamISetIncrementalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetIncremental", reflect.TypeOf((*MockSendStreamI)(nil).SetIncremental), arg0)
+	return &MockSendStreamISetIncrementalCall{Call: call}
+}
+
+// MockSendStreamISetIncrementalCall wrap *gomock.Call
+type MockSendStreamISetIncrementalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSendStreamISetIncrementalCall) Return() *MockSendStreamISetIncrementalCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSendStreamISetIncrementalCall) Do(f func(bool)) *MockSendStreamISetIncrementalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSendStreamISetIncrementalCall) DoAndReturn(f func(bool)) *MockSendStreamISetIncrementalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetPriority mocks base method.
+func (m *MockSendStreamI) SetPriority(arg0 uint32) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetPriority", arg0)
+}
+
+// SetPriority indicates an expected call of SetPriority.
+func (mr *MockSendStreamIMockRecorder) SetPriority(arg0 any) *MockSendStreamISetPriorityCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPriority", reflect.TypeOf((*MockSendStreamI)(nil).SetPriority), arg0)
+	return &MockSendStreamISetPriorityCall{Call: call}
+}
+
+// MockSendStreamISetPriorityCall wrap *gomock.Call
+type MockSendStreamISetPriorityCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSendStreamISetPriorityCall) Return() *MockSendStreamISetPriorityCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSendStreamISetPriorityCall) Do(f func(uint32)) *MockSendStreamISetPriorityCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSendStreamISetPriorityCall) DoAndReturn(f func(uint32)) *MockSendStreamISetPriorityCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetWriteDeadline mocks base method.
 func (m *MockSendStreamI) SetWriteDeadline(arg0 time.Time) error {
 	m.ctrl.T.Helper()
@@ -381,6 +453,44 @@ func (c *MockSendStreamIhasDataCall) DoAndReturn(f func() bool) *MockSendStreamI
 	return c
 }
 
+// incremental mocks base method.
+func (m *MockSendStreamI) incremental() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "incremental")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// incremental indicates an expected call of incremental.
+func (mr *MockSendStreamIMockRecorder) incremental() *MockSendStreamIincrementalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "incremental", reflect.TypeOf((*MockSendStreamI)(nil).incremental))
+	return &MockSendStreamIincrementalCall{Call: call}
+}
+
+// MockSendStreamIincrementalCall wrap *gomock.Call
+type MockSendStreamIincrementalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSendStreamIincrementalCall) Return(arg0 bool) *MockSendStreamIincrementalCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSendStreamIincrementalCall) Do(f func() bool) *MockSendStreamIincrementalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSendStreamIincrementalCall) DoAndReturn(f func() bool) *MockSendStreamIincrementalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // popStreamFrame mocks base method.
 func (m *MockSendStreamI) popStreamFrame(arg0 protocol.ByteCount, arg1 protocol.Version) (ackhandler.StreamFrame, bool, bool) {
 	m.ctrl.T.Helper()
@@ -417,6 +527,44 @@ func (c *MockSendStreamIpopStreamFrameCall) Do(f func(protocol.ByteCount, protoc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSendStreamIpopStreamFrameCall) DoAndReturn(f func(protocol.ByteCount, protocol.Version) (ackhandler.StreamFrame, bool, bool)) *MockSendStreamIpopStreamFrameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// priority mocks base method.
+func (m *MockSendStreamI) priority() uint32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "priority")
+	ret0, _ := ret[0].(uint32)
+	return ret0
+}
+
+// priority indicates an expected call of priority.
+func (mr *MockSendStreamIMockRecorder) priority() *MockSendStreamIpriorityCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "priority", reflect.TypeOf((*MockSendStreamI)(nil).priority))
+	return &MockSendStreamIpriorityCall{Call: call}
+}
+
+// MockSendStreamIpriorityCall wrap *gomock.Call
+type MockSendStreamIpriorityCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSendStreamIpriorityCall) Return(arg0 uint32) *MockSendStreamIpriorityCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSendStreamIpriorityCall) Do(f func() uint32) *MockSendStreamIpriorityCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSendStreamIpriorityCall) DoAndReturn(f func() uint32) *MockSendStreamIpriorityCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
