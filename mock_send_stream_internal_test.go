@@ -156,6 +156,42 @@ func (c *MockSendStreamIContextCall) DoAndReturn(f func() context.Context) *Mock
 	return c
 }
 
+// SetPriority mocks base method.
+func (m *MockSendStreamI) SetPriority(arg0 uint32) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetPriority", arg0)
+}
+
+// SetPriority indicates an expected call of SetPriority.
+func (mr *MockSendStreamIMockRecorder) SetPriority(arg0 any) *MockSendStreamISetPriorityCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPriority", reflect.TypeOf((*MockSendStreamI)(nil).SetPriority), arg0)
+	return &MockSendStreamISetPriorityCall{Call: call}
+}
+
+// MockSendStreamISetPriorityCall wrap *gomock.Call
+type MockSendStreamISetPriorityCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSendStreamISetPriorityCall) Return() *MockSendStreamISetPriorityCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSendStreamISetPriorityCall) Do(f func(uint32)) *MockSendStreamISetPriorityCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSendStreamISetPriorityCall) DoAndReturn(f func(uint32)) *MockSendStreamISetPriorityCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetWriteDeadline mocks base method.
 func (m *MockSendStreamI) SetWriteDeadline(arg0 time.Time) error {
 	m.ctrl.T.Helper()
@@ -417,6 +453,44 @@ func (c *MockSendStreamIpopStreamFrameCall) Do(f func(protocol.ByteCount, protoc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSendStreamIpopStreamFrameCall) DoAndReturn(f func(protocol.ByteCount, protocol.Version) (ackhandler.StreamFrame, bool, bool)) *MockSendStreamIpopStreamFrameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// priority mocks base method.
+func (m *MockSendStreamI) priority() uint32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "priority")
+	ret0, _ := ret[0].(uint32)
+	return ret0
+}
+
+// priority indicates an expected call of priority.
+func (mr *MockSendStreamIMockRecorder) priority() *MockSendStreamIpriorityCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "priority", reflect.TypeOf((*MockSendStreamI)(nil).priority))
+	return &MockSendStreamIpriorityCall{Call: call}
+}
+
+// MockSendStreamIpriorityCall wrap *gomock.Call
+type MockSendStreamIpriorityCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSendStreamIpriorityCall) Return(arg0 uint32) *MockSendStreamIpriorityCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSendStreamIpriorityCall) Do(f func() uint32) *MockSendStreamIpriorityCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSendStreamIpriorityCall) DoAndReturn(f func() uint32) *MockSendStreamIpriorityCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

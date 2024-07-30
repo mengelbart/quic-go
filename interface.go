@@ -142,6 +142,9 @@ type SendStream interface {
 	// some data was successfully written.
 	// A zero value for t means Write will not time out.
 	SetWriteDeadline(t time.Time) error
+
+	SetPriority(uint32)
+	SetIncremental(bool)
 }
 
 // A Connection is a QUIC connection between two peers.
