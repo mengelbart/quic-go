@@ -56,6 +56,8 @@ type (
 
 type AckRange = wire.AckRange
 
+type TimestampRange = wire.TimestampRange
+
 // A CryptoFrame is a CRYPTO frame.
 type CryptoFrame struct {
 	Offset int64

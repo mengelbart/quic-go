@@ -14,10 +14,11 @@ var errUnknownFrameType = errors.New("unknown frame type")
 
 // The FrameParser parses QUIC frames, one by one.
 type FrameParser struct {
-	ackDelayExponent      uint8
-	supportsDatagrams     bool
-	supportsResetStreamAt bool
-	supportsAckFrequency  bool
+	ackDelayExponent          uint8
+	supportsDatagrams         bool
+	supportsResetStreamAt     bool
+	supportsAckFrequency      bool
+	supportsReceiveTimestamps bool
 
 	// To avoid allocating when parsing, keep a single ACK frame struct.
 	// It is used over and over again.
@@ -27,10 +28,11 @@ type FrameParser struct {
 // NewFrameParser creates a new frame parser.
 func NewFrameParser(supportsDatagrams, supportsResetStreamAt, supportsAckFrequency bool) *FrameParser {
 	return &FrameParser{
-		supportsDatagrams:     supportsDatagrams,
-		supportsResetStreamAt: supportsResetStreamAt,
-		supportsAckFrequency:  supportsAckFrequency,
-		ackFrame:              &AckFrame{},
+		supportsDatagrams:         supportsDatagrams,
+		supportsResetStreamAt:     supportsResetStreamAt,
+		supportsAckFrequency:      supportsAckFrequency,
+		supportsReceiveTimestamps: true,
+		ackFrame:                  &AckFrame{},
 	}
 }
 
@@ -55,7 +57,8 @@ func (p *FrameParser) ParseType(b []byte, encLevel protocol.EncryptionLevel) (Fr
 		valid := ft.isValidRFC9000() ||
 			(p.supportsDatagrams && ft.IsDatagramFrameType()) ||
 			(p.supportsResetStreamAt && ft == FrameTypeResetStreamAt) ||
-			(p.supportsAckFrequency && (ft == FrameTypeAckFrequency || ft == FrameTypeImmediateAck))
+			(p.supportsAckFrequency && (ft == FrameTypeAckFrequency || ft == FrameTypeImmediateAck)) ||
+			(p.supportsReceiveTimestamps && ft == FrameTypeAckWithReceiveTimestamps || ft == FrameTypeAckECNWithReceiveTimestamps)
 		if !valid {
 			return 0, parsed, &qerr.TransportError{
 				ErrorCode:    qerr.FrameEncodingError,

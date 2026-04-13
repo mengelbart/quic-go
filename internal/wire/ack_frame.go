@@ -12,18 +12,26 @@ import (
 
 var errInvalidAckRanges = errors.New("AckFrame: ACK frame contains invalid ACK ranges")
 
+type TimestampRange struct {
+	DeltaLargestAcknowledged uint64
+	TimestampDeltaCount      uint64
+	TimestampDelta           []uint64
+}
+
 // An AckFrame is an ACK frame
 type AckFrame struct {
 	AckRanges []AckRange // has to be ordered. The highest ACK range goes first, the lowest ACK range goes last
 	DelayTime time.Duration
 
 	ECT0, ECT1, ECNCE uint64
+	ReceiveTimestamps []TimestampRange
 }
 
 // parseAckFrame reads an ACK frame
 func parseAckFrame(frame *AckFrame, b []byte, typ FrameType, ackDelayExponent uint8, _ protocol.Version) (int, error) {
 	startLen := len(b)
-	ecn := typ == FrameTypeAckECN
+	ecn := typ == FrameTypeAckECN || typ == FrameTypeAckECNWithReceiveTimestamps
+	hasRcvTs := typ == FrameTypeAckWithReceiveTimestamps || typ == FrameTypeAckECNWithReceiveTimestamps
 
 	la, l, err := quicvarint.Parse(b)
 	if err != nil {
@@ -115,17 +123,59 @@ func parseAckFrame(frame *AckFrame, b []byte, typ FrameType, ackDelayExponent ui
 		frame.ECNCE = ecnce
 	}
 
+	if hasRcvTs {
+		timestampRangeCount, l, err := quicvarint.Parse(b)
+		if err != nil {
+			return 0, replaceUnexpectedEOF(err)
+		}
+		b = b[l:]
+
+		for i := uint64(0); i < timestampRangeCount; i++ {
+			deltaLargestAcked, l, err := quicvarint.Parse(b)
+			if err != nil {
+				return 0, replaceUnexpectedEOF(err)
+			}
+			b = b[l:]
+
+			timestampDeltaCount, l, err := quicvarint.Parse(b)
+			if err != nil {
+				return 0, replaceUnexpectedEOF(err)
+			}
+			b = b[l:]
+			timestampDeltas := make([]uint64, 0, timestampDeltaCount)
+			for j := uint64(0); j < timestampDeltaCount; j++ {
+				delta, l, err := quicvarint.Parse(b)
+				if err != nil {
+					return 0, replaceUnexpectedEOF(err)
+				}
+				b = b[l:]
+				timestampDeltas = append(timestampDeltas, delta)
+			}
+			frame.ReceiveTimestamps = append(frame.ReceiveTimestamps, TimestampRange{
+				DeltaLargestAcknowledged: deltaLargestAcked,
+				TimestampDeltaCount:      timestampDeltaCount,
+				TimestampDelta:           timestampDeltas,
+			})
+		}
+	}
+
 	return startLen - len(b), nil
 }
 
 // Append appends an ACK frame.
 func (f *AckFrame) Append(b []byte, _ protocol.Version) ([]byte, error) {
 	hasECN := f.ECT0 > 0 || f.ECT1 > 0 || f.ECNCE > 0
-	if hasECN {
+	hasRcvTs := len(f.ReceiveTimestamps) > 0
+	if hasECN && hasRcvTs {
+		b = quicvarint.Append(b, uint64(FrameTypeAckECNWithReceiveTimestamps))
+	} else if hasECN && !hasRcvTs {
 		b = append(b, byte(FrameTypeAckECN))
-	} else {
+	} else if !hasECN && hasRcvTs {
+		b = quicvarint.Append(b, uint64(FrameTypeAckWithReceiveTimestamps))
+	} else if !hasECN && !hasRcvTs {
 		b = append(b, byte(FrameTypeAck))
 	}
+
 	b = quicvarint.Append(b, uint64(f.LargestAcked()))
 	b = quicvarint.Append(b, encodeAckDelay(f.DelayTime))
 
@@ -148,6 +198,18 @@ func (f *AckFrame) Append(b []byte, _ protocol.Version) ([]byte, error) {
 		b = quicvarint.Append(b, f.ECT1)
 		b = quicvarint.Append(b, f.ECNCE)
 	}
+
+	if hasRcvTs {
+		b = quicvarint.Append(b, uint64(len(f.ReceiveTimestamps)))
+		for _, r := range f.ReceiveTimestamps {
+			b = quicvarint.Append(b, r.DeltaLargestAcknowledged)
+			b = quicvarint.Append(b, r.TimestampDeltaCount)
+			for _, delta := range r.TimestampDelta {
+				b = quicvarint.Append(b, delta)
+			}
+		}
+	}
+
 	return b, nil
 }
 
@@ -155,9 +217,13 @@ func (f *AckFrame) Append(b []byte, _ protocol.Version) ([]byte, error) {
 func (f *AckFrame) Length(_ protocol.Version) protocol.ByteCount {
 	largestAcked := f.AckRanges[0].Largest
 
-	// The number of ACK ranges is limited to 64, which guarantees that the
-	// ACK Range Count value can be encoded in a single byte varint.
-	length := 1 + quicvarint.Len(uint64(largestAcked)) + quicvarint.Len(encodeAckDelay(f.DelayTime)) + 1
+	length := quicvarint.Len(uint64(largestAcked)) + quicvarint.Len(encodeAckDelay(f.DelayTime)) + 1
+	hasRcvTs := len(f.ReceiveTimestamps) > 0
+	if hasRcvTs {
+		length += quicvarint.Len(uint64(FrameTypeAckWithReceiveTimestamps))
+	} else {
+		length += 1
+	}
 
 	lowestInFirstRange := f.AckRanges[0].Smallest
 	length += quicvarint.Len(uint64(largestAcked - lowestInFirstRange))
@@ -169,6 +235,16 @@ func (f *AckFrame) Length(_ protocol.Version) protocol.ByteCount {
 	}
 	if f.ECT0 > 0 || f.ECT1 > 0 || f.ECNCE > 0 {
 		length += quicvarint.Len(f.ECT0) + quicvarint.Len(f.ECT1) + quicvarint.Len(f.ECNCE)
+	}
+	if len(f.ReceiveTimestamps) > 0 {
+		length += quicvarint.Len(uint64(len(f.ReceiveTimestamps)))
+		for _, r := range f.ReceiveTimestamps {
+			length += quicvarint.Len(r.DeltaLargestAcknowledged)
+			length += quicvarint.Len(r.TimestampDeltaCount)
+			for _, delta := range r.TimestampDelta {
+				length += quicvarint.Len(delta)
+			}
+		}
 	}
 	return protocol.ByteCount(length)
 }
@@ -206,6 +282,16 @@ func (f *AckFrame) numEncodableAckRanges(maxSize protocol.ByteCount) int {
 	for i := 1; i < numRanges; i++ {
 		gap, l := f.encodeAckRange(i)
 		rangeLen := quicvarint.Len(gap) + quicvarint.Len(l)
+		if len(f.ReceiveTimestamps) > 0 {
+			rangeLen += quicvarint.Len(uint64(len(f.ReceiveTimestamps)))
+			for _, r := range f.ReceiveTimestamps {
+				rangeLen += quicvarint.Len(r.DeltaLargestAcknowledged)
+				rangeLen += quicvarint.Len(r.TimestampDeltaCount)
+				for _, delta := range r.TimestampDelta {
+					rangeLen += quicvarint.Len(delta)
+				}
+			}
+		}
 		if protocol.ByteCount(length+rangeLen) > maxSize {
 			// Writing range i would exceed the maximum size,
 			// so encode one range less than that.
@@ -291,6 +377,15 @@ func (f *AckFrame) Reset() {
 		r.Smallest = 0
 	}
 	f.AckRanges = f.AckRanges[:0]
+	for _, r := range f.ReceiveTimestamps {
+		r.DeltaLargestAcknowledged = 0
+		r.TimestampDeltaCount = 0
+		for i := range r.TimestampDelta {
+			r.TimestampDelta[i] = 0
+		}
+		r.TimestampDelta = r.TimestampDelta[:0]
+	}
+	f.ReceiveTimestamps = f.ReceiveTimestamps[:0]
 }
 
 func encodeAckDelay(delay time.Duration) uint64 {

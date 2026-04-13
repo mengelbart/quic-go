@@ -48,11 +48,12 @@ func toQlogFrame(frame wire.Frame) qlog.Frame {
 
 func toQlogAckFrame(f *wire.AckFrame) *qlog.AckFrame {
 	ack := &qlog.AckFrame{
-		AckRanges: slices.Clone(f.AckRanges),
-		DelayTime: f.DelayTime,
-		ECNCE:     f.ECNCE,
-		ECT0:      f.ECT0,
-		ECT1:      f.ECT1,
+		AckRanges:         slices.Clone(f.AckRanges),
+		DelayTime:         f.DelayTime,
+		ECNCE:             f.ECNCE,
+		ECT0:              f.ECT0,
+		ECT1:              f.ECT1,
+		ReceiveTimestamps: slices.Clone(f.ReceiveTimestamps),
 	}
 	return ack
 }

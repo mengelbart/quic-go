@@ -4,13 +4,15 @@ import (
 	"iter"
 	"slices"
 
+	"github.com/quic-go/quic-go/internal/monotime"
 	"github.com/quic-go/quic-go/internal/protocol"
 )
 
 // interval is an interval from one PacketNumber to the other
 type interval struct {
-	Start protocol.PacketNumber
-	End   protocol.PacketNumber
+	Start             protocol.PacketNumber
+	End               protocol.PacketNumber
+	receiveTimestamps []monotime.Time
 }
 
 // The receivedPacketHistory stores if a packet number has already been received.
@@ -29,13 +31,13 @@ func newReceivedPacketHistory() *receivedPacketHistory {
 }
 
 // ReceivedPacket registers a packet with PacketNumber p and updates the ranges
-func (h *receivedPacketHistory) ReceivedPacket(p protocol.PacketNumber) bool /* is a new packet (and not a duplicate / delayed packet) */ {
+func (h *receivedPacketHistory) ReceivedPacket(p protocol.PacketNumber, rcvTime monotime.Time) bool /* is a new packet (and not a duplicate / delayed packet) */ {
 	// ignore delayed packets, if we already deleted the range
 	if p < h.deletedBelow {
 		return false
 	}
 
-	isNew := h.addToRanges(p)
+	isNew := h.addToRanges(p, rcvTime)
 	// Delete old ranges, if we're tracking too many of them.
 	// This is a DoS defense against a peer that sends us too many gaps.
 	if len(h.ranges) > protocol.MaxNumAckRanges {
@@ -44,9 +46,9 @@ func (h *receivedPacketHistory) ReceivedPacket(p protocol.PacketNumber) bool /* 
 	return isNew
 }
 
-func (h *receivedPacketHistory) addToRanges(p protocol.PacketNumber) bool /* is a new packet (and not a duplicate / delayed packet) */ {
+func (h *receivedPacketHistory) addToRanges(p protocol.PacketNumber, rcvTime monotime.Time) bool /* is a new packet (and not a duplicate / delayed packet) */ {
 	if len(h.ranges) == 0 {
-		h.ranges = append(h.ranges, interval{Start: p, End: p})
+		h.ranges = append(h.ranges, interval{Start: p, End: p, receiveTimestamps: []monotime.Time{rcvTime}})
 		return true
 	}
 
@@ -58,13 +60,16 @@ func (h *receivedPacketHistory) addToRanges(p protocol.PacketNumber) bool /* is 
 
 		if h.ranges[i].End == p-1 { // extend a range at the end
 			h.ranges[i].End = p
+			h.ranges[i].receiveTimestamps = append(h.ranges[i].receiveTimestamps, rcvTime)
 			return true
 		}
 		if h.ranges[i].Start == p+1 { // extend a range at the beginning
 			h.ranges[i].Start = p
+			h.ranges[i].receiveTimestamps = append([]monotime.Time{rcvTime}, h.ranges[i].receiveTimestamps...)
 
 			if i > 0 && h.ranges[i-1].End+1 == h.ranges[i].Start { // merge two ranges
 				h.ranges[i-1].End = h.ranges[i].End
+				h.ranges[i-1].receiveTimestamps = append(h.ranges[i-1].receiveTimestamps, h.ranges[i].receiveTimestamps...)
 				h.ranges = slices.Delete(h.ranges, i, i+1)
 			}
 			return true
@@ -72,13 +77,13 @@ func (h *receivedPacketHistory) addToRanges(p protocol.PacketNumber) bool /* is 
 
 		// create a new range after the current one
 		if p > h.ranges[i].End {
-			h.ranges = slices.Insert(h.ranges, i+1, interval{Start: p, End: p})
+			h.ranges = slices.Insert(h.ranges, i+1, interval{Start: p, End: p, receiveTimestamps: []monotime.Time{rcvTime}})
 			return true
 		}
 	}
 
 	// create a new range at the beginning
-	h.ranges = slices.Insert(h.ranges, 0, interval{Start: p, End: p})
+	h.ranges = slices.Insert(h.ranges, 0, interval{Start: p, End: p, receiveTimestamps: []monotime.Time{rcvTime}})
 	return true
 }
 
@@ -98,7 +103,9 @@ func (h *receivedPacketHistory) DeleteBelow(p protocol.PacketNumber) {
 		if h.ranges[i].End < p { // delete a whole range
 			idx = i
 		} else if p > h.ranges[i].Start && p <= h.ranges[i].End {
+			diff := p - h.ranges[i].Start
 			h.ranges[i].Start = p
+			h.ranges[i].receiveTimestamps = h.ranges[i].receiveTimestamps[diff:]
 			break
 		} else { // no ranges affected. Nothing to do
 			break

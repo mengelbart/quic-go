@@ -38,6 +38,9 @@ const (
 
 	FrameTypeDatagramNoLength   FrameType = 0x30
 	FrameTypeDatagramWithLength FrameType = 0x31
+
+	FrameTypeAckWithReceiveTimestamps    FrameType = 0x03178307
+	FrameTypeAckECNWithReceiveTimestamps FrameType = 0x03178308
 )
 
 func (t FrameType) IsStreamFrameType() bool {
@@ -49,7 +52,7 @@ func (t FrameType) isValidRFC9000() bool {
 }
 
 func (t FrameType) IsAckFrameType() bool {
-	return t == FrameTypeAck || t == FrameTypeAckECN
+	return t == FrameTypeAck || t == FrameTypeAckECN || t == FrameTypeAckWithReceiveTimestamps || t == FrameTypeAckECNWithReceiveTimestamps
 }
 
 func (t FrameType) IsDatagramFrameType() bool {
@@ -61,7 +64,7 @@ func (t FrameType) isAllowedAtEncLevel(encLevel protocol.EncryptionLevel) bool {
 	switch encLevel {
 	case protocol.EncryptionInitial, protocol.EncryptionHandshake:
 		switch t {
-		case FrameTypeCrypto, FrameTypeAck, FrameTypeAckECN, FrameTypeConnectionClose, FrameTypePing:
+		case FrameTypeCrypto, FrameTypeAck, FrameTypeAckECN, FrameTypeAckWithReceiveTimestamps, FrameTypeAckECNWithReceiveTimestamps, FrameTypeConnectionClose, FrameTypePing:
 			return true
 		default:
 			return false

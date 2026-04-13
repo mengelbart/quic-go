@@ -2,6 +2,8 @@ package ackhandler
 
 import (
 	"fmt"
+	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/monotime"
@@ -21,15 +23,19 @@ type receivedPacketTracker struct {
 
 	lastAck   *wire.AckFrame
 	hasNewAck bool // true as soon as we received an ack-eliciting new packet
+	baseTime  monotime.Time
 }
 
 func newReceivedPacketTracker() *receivedPacketTracker {
-	return &receivedPacketTracker{packetHistory: *newReceivedPacketHistory()}
+	return &receivedPacketTracker{packetHistory: *newReceivedPacketHistory(), baseTime: monotime.Time(0)}
 }
 
-func (h *receivedPacketTracker) ReceivedPacket(pn protocol.PacketNumber, ecn protocol.ECN, ackEliciting bool) error {
-	if isNew := h.packetHistory.ReceivedPacket(pn); !isNew {
+func (h *receivedPacketTracker) ReceivedPacket(pn protocol.PacketNumber, ecn protocol.ECN, rcvTime monotime.Time, ackEliciting bool) error {
+	if isNew := h.packetHistory.ReceivedPacket(pn, rcvTime); !isNew {
 		return fmt.Errorf("receivedPacketTracker BUG: ReceivedPacket called for old / duplicate packet %d", pn)
+	}
+	if h.baseTime.IsZero() {
+		h.baseTime = rcvTime
 	}
 
 	//nolint:exhaustive // Only need to count ECT(0), ECT(1) and ECN-CE.
@@ -65,7 +71,29 @@ func (h *receivedPacketTracker) GetAckFrame() *wire.AckFrame {
 	for r := range h.packetHistory.Backward() {
 		ack.AckRanges = append(ack.AckRanges, wire.AckRange{Smallest: r.Start, Largest: r.End})
 	}
-
+	followingTime := monotime.Time(0)
+	for r := range h.packetHistory.Backward() {
+		timestamps := wire.TimestampRange{
+			DeltaLargestAcknowledged: uint64(ack.LargestAcked()) - uint64(r.End),
+			TimestampDeltaCount:      uint64(len(r.receiveTimestamps)),
+			TimestampDelta:           []uint64{},
+		}
+		for _, t := range slices.Backward(r.receiveTimestamps) {
+			var delta int64
+			if followingTime.IsZero() {
+				delta = t.Sub(h.baseTime).Microseconds()
+			} else {
+				delta = followingTime.Sub(t).Microseconds()
+			}
+			delta = max(delta, 0)
+			if uint64(delta) > 4611686018427387903 {
+				slog.Info("delta too large", "baseTime", h.baseTime, "t", t, "followingTime", followingTime, "delta", delta, "uint64(delta)", uint64(delta), "ack", ack, "timestamps", timestamps, "receiverTimestamps", r.receiveTimestamps)
+			}
+			timestamps.TimestampDelta = append(timestamps.TimestampDelta, uint64(delta))
+			followingTime = t
+		}
+		ack.ReceiveTimestamps = append(ack.ReceiveTimestamps, timestamps)
+	}
 	h.lastAck = ack
 	h.hasNewAck = false
 	return ack
@@ -107,7 +135,7 @@ func newAppDataReceivedPacketTracker(logger utils.Logger) *appDataReceivedPacket
 }
 
 func (h *appDataReceivedPacketTracker) ReceivedPacket(pn protocol.PacketNumber, ecn protocol.ECN, rcvTime monotime.Time, ackEliciting bool) error {
-	if err := h.receivedPacketTracker.ReceivedPacket(pn, ecn, ackEliciting); err != nil {
+	if err := h.receivedPacketTracker.ReceivedPacket(pn, ecn, rcvTime, ackEliciting); err != nil {
 		return err
 	}
 	if pn >= h.largestObserved {
