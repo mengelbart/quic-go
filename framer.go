@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"container/heap"
 	"slices"
 	"sync"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/quic-go/quic-go/internal/flowcontrol"
 	"github.com/quic-go/quic-go/internal/monotime"
 	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/utils/ringbuffer"
+	"github.com/quic-go/quic-go/internal/utils/priorityqueue"
 	"github.com/quic-go/quic-go/internal/wire"
 	"github.com/quic-go/quic-go/quicvarint"
 )
@@ -24,6 +25,8 @@ const maxStreamControlFrameSize = 25
 
 type streamFrameGetter interface {
 	popStreamFrame(protocol.ByteCount, protocol.Version) (ackhandler.StreamFrame, *wire.StreamDataBlockedFrame, bool)
+	priority() uint32
+	incremental() bool
 }
 
 type streamControlFrameGetter interface {
@@ -34,7 +37,7 @@ type framer struct {
 	mutex sync.Mutex
 
 	activeStreams            map[protocol.StreamID]streamFrameGetter
-	streamQueue              ringbuffer.RingBuffer[protocol.StreamID]
+	streamQueue              priorityqueue.PriorityQueue
 	streamsWithControlFrames map[protocol.StreamID]streamControlFrameGetter
 
 	controlFrameMutex          sync.Mutex
@@ -221,7 +224,11 @@ func (f *framer) QueuedTooManyControlFrames() bool {
 func (f *framer) AddActiveStream(id protocol.StreamID, str streamFrameGetter) {
 	f.mutex.Lock()
 	if _, ok := f.activeStreams[id]; !ok {
-		f.streamQueue.PushBack(id)
+		heap.Push(&f.streamQueue, &priorityqueue.Item{
+			Value:     int64(id),
+			Timestamp: monotime.Now(),
+			Priority:  str.priority(),
+		})
 		f.activeStreams[id] = str
 	}
 	f.mutex.Unlock()
@@ -246,7 +253,8 @@ func (f *framer) RemoveActiveStream(id protocol.StreamID) {
 }
 
 func (f *framer) getNextStreamFrame(maxLen protocol.ByteCount, v protocol.Version) (ackhandler.StreamFrame, *wire.StreamDataBlockedFrame) {
-	id := f.streamQueue.PopFront()
+	item := heap.Pop(&f.streamQueue).(*priorityqueue.Item)
+	id := protocol.StreamID(item.Value)
 	// This should never return an error. Better check it anyway.
 	// The stream will only be in the streamQueue, if it enqueued itself there.
 	str, ok := f.activeStreams[id]
@@ -260,7 +268,10 @@ func (f *framer) getNextStreamFrame(maxLen protocol.ByteCount, v protocol.Versio
 	maxLen += protocol.ByteCount(quicvarint.Len(uint64(maxLen)))
 	frame, blocked, hasMoreData := str.popStreamFrame(maxLen, v)
 	if hasMoreData { // put the stream back in the queue (at the end)
-		f.streamQueue.PushBack(id)
+		if str.incremental() {
+			item.Timestamp = monotime.Now()
+		}
+		heap.Push(&f.streamQueue, item)
 	} else { // no more data to send. Stream is not active
 		delete(f.activeStreams, id)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/ackhandler"
@@ -55,6 +56,25 @@ type SendStream struct {
 	deadline  monotime.Time
 
 	flowController flowcontrol.StreamFlowController
+
+	prio atomic.Uint32
+	inc  atomic.Bool
+}
+
+func (s *SendStream) priority() uint32 {
+	return s.prio.Load()
+}
+
+func (s *SendStream) SetPriority(p uint32) {
+	s.prio.Store(p)
+}
+
+func (s *SendStream) incremental() bool {
+	return s.inc.Load()
+}
+
+func (s *SendStream) SetIncremental(i bool) {
+	s.inc.Store(i)
 }
 
 var (
