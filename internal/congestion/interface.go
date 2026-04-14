@@ -25,3 +25,11 @@ type SendAlgorithmWithDebugInfos interface {
 	InRecovery() bool
 	GetCongestionWindow() protocol.ByteCount
 }
+
+type PacerInt interface {
+	SentPacket(sendTime monotime.Time, size protocol.ByteCount)
+	Budget(now monotime.Time) protocol.ByteCount
+	SetRate(uint)
+	SetMaxDatagramSize(s protocol.ByteCount)
+	TimeUntilSend() monotime.Time
+}

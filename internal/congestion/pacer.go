@@ -35,6 +35,10 @@ func newPacer(getBandwidth func() Bandwidth) *pacer {
 	return p
 }
 
+func (p *pacer) SetRate(rate uint) {
+
+}
+
 func (p *pacer) SentPacket(sendTime monotime.Time, size protocol.ByteCount) {
 	budget := p.Budget(sendTime)
 	if size >= budget {

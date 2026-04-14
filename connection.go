@@ -229,6 +229,16 @@ type Conn struct {
 	logger    utils.Logger
 }
 
+type pacingRateSetter interface {
+	SetPacingRate(rate uint64)
+}
+
+func (c *Conn) SetPacingRate(rate uint64) {
+	if prs, ok := c.sentPacketHandler.(pacingRateSetter); ok {
+		prs.SetPacingRate(rate)
+	}
+}
+
 var _ streamSender = &Conn{}
 
 type connTestHooks struct {

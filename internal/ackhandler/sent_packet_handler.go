@@ -129,14 +129,7 @@ func NewSentPacketHandler(
 	qlogger qlogwriter.Recorder,
 	logger utils.Logger,
 ) SentPacketHandler {
-	congestion := congestion.NewCubicSender(
-		congestion.DefaultClock{},
-		rttStats,
-		connStats,
-		initialMaxDatagramSize,
-		true, // use Reno
-		qlogger,
-	)
+	congestion := congestion.NewPacingSender(initialMaxDatagramSize)
 
 	h := &sentPacketHandler{
 		peerCompletedAddressValidation: pers == protocol.PerspectiveServer,
@@ -1131,13 +1124,16 @@ func (h *sentPacketHandler) MigratedPath(now monotime.Time, initialMaxDatagramSi
 	for pn := range h.appDataPackets.history.PathProbes() {
 		h.appDataPackets.history.RemovePathProbe(pn)
 	}
-	h.congestion = congestion.NewCubicSender(
-		congestion.DefaultClock{},
-		h.rttStats,
-		h.connStats,
-		initialMaxDatagramSize,
-		true, // use Reno
-		h.qlogger,
-	)
+	h.congestion = congestion.NewPacingSender(initialMaxDatagramSize)
 	h.setLossDetectionTimer(now)
+}
+
+type pacingRateSetter interface {
+	SetPacingRate(rate uint64)
+}
+
+func (h *sentPacketHandler) SetPacingRate(rate uint64) {
+	if prs, ok := h.congestion.(pacingRateSetter); ok {
+		prs.SetPacingRate(rate)
+	}
 }
